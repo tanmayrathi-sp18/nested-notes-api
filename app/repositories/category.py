@@ -1,6 +1,6 @@
 from collections.abc import Sequence
 
-from sqlalchemy import select
+from sqlalchemy import delete, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.category import Category
@@ -34,17 +34,23 @@ class CategoryRepository:
     async def update(
         self, category_id: int, user_id: int, name: str
     ) -> Category | None:
-        category = await self.get_by_id(category_id, user_id)
-        if category:
-            category.name = name
-            await self.session.commit()
-            await self.session.refresh(category)
-        return category
+        stmt = (
+            update(Category)
+            .where(Category.id == category_id, Category.user_id == user_id)
+            .values(name=name)
+            .returning(Category)
+        )
+        result = await self.session.execute(stmt)
+        await self.session.commit()
+        return result.scalar_one_or_none()
 
     async def delete(self, category_id: int, user_id: int) -> bool:
-        category = await self.get_by_id(category_id, user_id)
-        if category:
-            await self.session.delete(category)
-            await self.session.commit()
-            return True
-        return False
+        stmt = (
+            delete(Category)
+            .where(Category.id == category_id, Category.user_id == user_id)
+            .returning(Category.id)
+        )
+        result = await self.session.execute(stmt)
+        await self.session.commit()
+
+        return result.scalar_one_or_none() is not None

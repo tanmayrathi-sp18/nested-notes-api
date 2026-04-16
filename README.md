@@ -4,15 +4,15 @@ A high-performance, scalable REST API for managing hierarchical notes. The syste
 
 ## 🏗 Architecture
 
-This project employs a **Layered Architecture** (API → Service → Repository → Model). This approach was chosen to ensure a strict separation of concerns:
+This project employs a **Layered Architecture** (API → Service → Repository → Model). This approach ensures a strict separation of concerns:
 
--   **API Layer (Controllers)**: Handles HTTP parsing, request validation, and response formatting. It is agnostic of business logic.
--   **Service Layer**: The "Brain" of the application. It orchestrates business rules, manages ownership verification, handles JWT logic, and coordinates Redis caching strategies.
--   **Repository Layer**: Encapsulates all SQLAlchemy queries. This ensures that the Service layer doesn't need to know the specifics of the database schema or the nuances of async SQLAlchemy.
+-   **API Layer (Controllers)**: Handles HTTP parsing, request validation, and response formatting. It uses global exception handlers to map domain errors to HTTP responses.
+-   **Service Layer**: The "Brain" of the application. It orchestrates business rules and manages ownership verification. Infrastructure concerns (like caching) are decoupled using **Custom Decorators**, keeping service methods pure.
+-   **Repository Layer**: Encapsulates all SQLAlchemy queries. It utilizes **Atomic SQL Operations** (via `update()` and `delete()`) to prevent race conditions and maximize performance.
 -   **Model Layer**: Defines the data structures and database schemas.
 
 **Why this approach?**
-By decoupling the business logic (Service) from the data access (Repository) and the transport protocol (API), the system becomes significantly easier to test, maintain, and evolve. For instance, swapping PostgreSQL for another database or changing the caching provider would require minimal changes to the core business logic.
+By decoupling business logic from data access and the transport protocol, the system is highly maintainable and resilient to concurrency issues. Moving infrastructure logic into decorators and global handlers ensures that the service layer remains focused on core business rules.
 
 ## 🛠 Tech Stack
 
@@ -33,8 +33,9 @@ By decoupling the business logic (Service) from the data access (Repository) and
 -   **Hierarchical Organization**: Support for nested notes, allowing users to create deep organizational trees of information.
 -   **Strict Ownership Verification**: Middleware and service-level checks ensure users can only access or modify their own data.
 -   **Intelligent Caching**: 
-    -   **Write-through**: Updates are written to both the database and Redis simultaneously.
-    -   **Invalidation**: Precise cache purging on note updates to prevent stale data.
+    -   **Decorator-Based**: Caching is handled via a high-performance `@cache_result` decorator, decoupling infrastructure from business logic.
+    -   **Serialization**: Uses Pydantic `TypeAdapter` for efficient, type-safe serialization of complex data structures.
+    -   **Invalidation**: Precise cache purging on entity updates to prevent stale data.
 
 ## ⚙️ How it Works: The Request Lifecycle
 
@@ -46,7 +47,7 @@ When a request hits the API (e.g., `GET /notes/{id}`), the following flow occurs
     -   **Cache Lookup**: The service checks Redis for the note. If a hit occurs, the data is returned immediately.
     -   **Database Fallback**: On a cache miss, the Service calls the Repository.
 3.  **Repository Layer**: Executes an async SQL query to fetch the note from PostgreSQL.
-4.  **Service Layer (Post-process)**: The fetched note is stored back into Redis for future requests and then returned to the API layer.
+4.  **Service Layer (Post-process)**: On a cache miss, the result is serialized via Pydantic and stored back into Redis for future requests.
 5.  **API Layer**: Returns the final JSON response to the client.
 
 ## 🚀 Getting Started

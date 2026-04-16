@@ -1,6 +1,6 @@
 from collections.abc import Sequence
 
-from sqlalchemy import select
+from sqlalchemy import delete, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.note import Note
@@ -38,18 +38,23 @@ class NoteRepository:
     async def update(
         self, note_id: int, user_id: int, title: str, content: str
     ) -> Note | None:
-        note = await self.get_by_id(note_id, user_id)
-        if note:
-            note.title = title
-            note.content = content
-            await self.session.commit()
-            await self.session.refresh(note)
-        return note
+        stmt = (
+            update(Note)
+            .where(Note.id == note_id, Note.user_id == user_id)
+            .values(title=title, content=content)
+            .returning(Note)
+        )
+        result = await self.session.execute(stmt)
+        await self.session.commit()
+        return result.scalar_one_or_none()
 
     async def delete(self, note_id: int, user_id: int) -> bool:
-        note = await self.get_by_id(note_id, user_id)
-        if note:
-            await self.session.delete(note)
-            await self.session.commit()
-            return True
-        return False
+        stmt = (
+            delete(Note)
+            .where(Note.id == note_id, Note.user_id == user_id)
+            .returning(Note.id)
+        )
+        result = await self.session.execute(stmt)
+        await self.session.commit()
+
+        return result.scalar_one_or_none() is not None
