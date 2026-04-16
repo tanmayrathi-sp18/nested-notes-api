@@ -1,0 +1,128 @@
+# 📝 Nested Notes API
+
+A high-performance, scalable REST API for managing hierarchical notes. The system allows users to organize thoughts into nested structures, ensuring a clean separation between categories and notes while providing low-latency access through an intelligent caching layer.
+
+## 🏗 Architecture
+
+This project employs a **Layered Architecture** (API → Service → Repository → Model). This approach was chosen to ensure a strict separation of concerns:
+
+-   **API Layer (Controllers)**: Handles HTTP parsing, request validation, and response formatting. It is agnostic of business logic.
+-   **Service Layer**: The "Brain" of the application. It orchestrates business rules, manages ownership verification, handles JWT logic, and coordinates Redis caching strategies.
+-   **Repository Layer**: Encapsulates all SQLAlchemy queries. This ensures that the Service layer doesn't need to know the specifics of the database schema or the nuances of async SQLAlchemy.
+-   **Model Layer**: Defines the data structures and database schemas.
+
+**Why this approach?**
+By decoupling the business logic (Service) from the data access (Repository) and the transport protocol (API), the system becomes significantly easier to test, maintain, and evolve. For instance, swapping PostgreSQL for another database or changing the caching provider would require minimal changes to the core business logic.
+
+## 🛠 Tech Stack
+
+| Component | Technology | Purpose |
+| :--- | :--- | :--- |
+| **Language** | Python 3.13 | Latest features and performance improvements. |
+| **Framework** | FastAPI | Asynchronous, type-safe web framework with auto-generated OpenAPI docs. |
+| **Database** | PostgreSQL | Relational storage for structured user and note data. |
+| **ORM** | SQLAlchemy (Async) | Efficient asynchronous database interactions. |
+| **Migrations** | Alembic | Database versioning and schema evolution. |
+| **Caching** | Redis | Write-through caching to reduce DB load for frequently accessed notes. |
+| **Package Manager**| `uv` | Ultra-fast Python package installation and environment management. |
+| **Linter/Formatter**| Ruff | Extremely fast Python linting and formatting. |
+
+## ✨ Key Features
+
+-   **JWT Authentication**: Secure, stateless user authentication using JSON Web Tokens.
+-   **Hierarchical Organization**: Support for nested notes, allowing users to create deep organizational trees of information.
+-   **Strict Ownership Verification**: Middleware and service-level checks ensure users can only access or modify their own data.
+-   **Intelligent Caching**: 
+    -   **Write-through**: Updates are written to both the database and Redis simultaneously.
+    -   **Invalidation**: Precise cache purging on note updates to prevent stale data.
+
+## ⚙️ How it Works: The Request Lifecycle
+
+When a request hits the API (e.g., `GET /notes/{id}`), the following flow occurs:
+
+1.  **API Layer**: The request is validated. The JWT is extracted from the header to identify the user.
+2.  **Service Layer**: 
+    -   **Auth Check**: The service verifies if the requested note belongs to the authenticated user.
+    -   **Cache Lookup**: The service checks Redis for the note. If a hit occurs, the data is returned immediately.
+    -   **Database Fallback**: On a cache miss, the Service calls the Repository.
+3.  **Repository Layer**: Executes an async SQL query to fetch the note from PostgreSQL.
+4.  **Service Layer (Post-process)**: The fetched note is stored back into Redis for future requests and then returned to the API layer.
+5.  **API Layer**: Returns the final JSON response to the client.
+
+## 🚀 Getting Started
+
+### Prerequisites
+-   Python 3.13+
+-   PostgreSQL
+-   Redis
+
+### Installation
+1. **Clone the repository**
+   ```bash
+   git clone https://github.com/your-repo/nested-notes-api.git
+   cd nested-nodes-api
+   ```
+
+2. **Setup environment with `uv`**
+   ```bash
+   uv sync
+   source .venv/bin/activate
+   ```
+
+3. **Environment Variables**
+   Create a `.env` file in the root directory:
+   ```env
+   DATABASE_URL=postgresql+asyncpg://user:pass@localhost/dbname
+   REDIS_URL=redis://localhost:6379/0
+   JWT_SECRET=your_super_secret_key
+   ```
+
+4. **Database Migrations**
+   ```bash
+   uv run alembic upgrade head
+   ```
+
+5. **Run the Application**
+   ```bash
+   uv run uvicorn app.main:app --reload
+   ```
+   The API will be available at `http://localhost:8000`. Access the interactive docs at `/docs`.
+
+## 🛣 API Overview
+
+### 🔐 Authentication
+- `POST /auth/register` - Create a new account.
+- `POST /auth/token` - Login and receive a JWT.
+
+### 📂 Categories
+- `GET /categories` - List all user categories.
+- `POST /categories` - Create a new organizational category.
+
+### 📝 Notes
+- `GET /notes` - Retrieve notes (supports nesting filters).
+- `POST /notes` - Create a new note (can be nested under another note).
+- `GET /notes/{id}` - Fetch a specific note (Cache-enabled).
+- `PATCH /notes/{id}` - Update note content (Triggers cache invalidation).
+- `DELETE /notes/{id}` - Remove a note and its children.
+
+## 🛠 Development Workflow
+
+### Linting & Formatting
+We use **Ruff** for all code quality checks.
+```bash
+# Check for linting errors
+uv run ruff check .
+
+# Automatically fix linting and format code
+uv run ruff format .
+```
+
+### Database Changes
+All schema changes must be handled via Alembic.
+```bash
+# Generate a migration script after changing models
+uv run alembic revision --autogenerate -m "description of change"
+
+# Apply the migration
+uv run alembic upgrade head
+```
