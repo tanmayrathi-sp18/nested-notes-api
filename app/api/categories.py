@@ -10,7 +10,7 @@ from app.schemas.category import CategoryCreate, CategoryRead
 from app.schemas.note import NoteCreate, NoteRead
 from app.services.category_service import CategoryService, NoteService
 
-router = APIRouter(prefix="/categories", tags=["categories"])
+router = APIRouter(prefix="/categories", tags=["categories and notes"])
 
 
 @router.post("/", response_model=CategoryRead)

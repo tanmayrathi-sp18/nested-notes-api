@@ -9,10 +9,10 @@ from app.models.user import User
 from app.schemas.note import NoteCreate, NoteRead
 from app.services.category_service import NoteService
 
-router = APIRouter(prefix="/notes", tags=["notes"])
+router = APIRouter(prefix="/categories", tags=["categories and notes"])
 
 
-@router.get("/{category_id}/{note_id}", response_model=NoteRead)
+@router.get("/{category_id}/notes/{note_id}", response_model=NoteRead)
 async def get_note(
     category_id: int,
     note_id: int,
@@ -23,7 +23,7 @@ async def get_note(
     return await service.get_note(note_id, category_id, current_user.id)
 
 
-@router.put("/{category_id}/{note_id}", response_model=NoteRead)
+@router.put("/{category_id}/notes/{note_id}", response_model=NoteRead)
 async def update_note(
     category_id: int,
     note_id: int,
@@ -37,7 +37,7 @@ async def update_note(
     )
 
 
-@router.delete("/{category_id}/{note_id}")
+@router.delete("/{category_id}/notes/{note_id}")
 async def delete_note(
     category_id: int,
     note_id: int,
