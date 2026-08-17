@@ -1,6 +1,6 @@
 from collections.abc import Sequence
 
-from sqlalchemy import delete, select, update
+from sqlalchemy import delete, func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.note import Note
@@ -58,3 +58,11 @@ class NoteRepository:
         await self.session.commit()
 
         return result.scalar_one_or_none() is not None
+
+    async def get_stats_by_user(self, user_id: int) -> list[tuple[int, int]]:
+        result = await self.session.execute(
+            select(Note.category_id, func.count(Note.id))
+            .where(Note.user_id == user_id)
+            .group_by(Note.category_id)
+        )
+        return [(row[0], row[1]) for row in result.all()]

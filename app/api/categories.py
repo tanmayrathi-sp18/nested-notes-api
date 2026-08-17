@@ -8,6 +8,7 @@ from app.core.dependencies import get_current_user
 from app.models.user import User
 from app.schemas.category import CategoryCreate, CategoryRead
 from app.schemas.note import NoteCreate, NoteRead
+from app.schemas.user import UserStats
 from app.services.category_service import CategoryService, NoteService
 
 router = APIRouter(prefix="/categories", tags=["categories and notes"])
@@ -31,6 +32,13 @@ async def list_categories(
     service = CategoryService(session)
     return await service.list_categories(current_user.id)
 
+@router.get("/stats", response_model=UserStats)
+async def get_user_stats(
+    current_user: Annotated[User, Depends(get_current_user)],
+    session: Annotated[AsyncSession, Depends(get_db)],
+):
+    service = CategoryService(session)
+    return await service.get_user_stats(current_user.id)
 
 @router.get("/{category_id}", response_model=CategoryRead)
 async def get_category(
@@ -87,3 +95,6 @@ async def create_note(
     return await service.create_note(
         note_in.title, note_in.content, category_id, current_user.id
     )
+
+
+

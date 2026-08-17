@@ -1,3 +1,5 @@
+import asyncio
+
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.cache import cache_result
@@ -7,12 +9,14 @@ from app.repositories.category import CategoryRepository
 from app.repositories.note import NoteRepository
 from app.schemas.category import CategoryRead
 from app.schemas.note import NoteRead
+from app.schemas.user import UserStats
 
 
 class CategoryService:
     def __init__(self, session: AsyncSession):
         self.session = session
-        self.repo = CategoryRepository(session)
+        self.repo: CategoryRepository = CategoryRepository(session)
+        self.note_repo: NoteRepository = NoteRepository(session)
 
     async def create_category(self, name: str, user_id: int):
         category = await self.repo.create(name, user_id)
@@ -53,6 +57,20 @@ class CategoryService:
             f"user:{user_id}:category:{category_id}:notes",
         )
         return True
+
+    async def get_user_stats(self, user_id: int) -> UserStats:
+        categories, note_stats = await asyncio.gather(
+            self.repo.get_all_by_user(user_id),
+            self.note_repo.get_stats_by_user(user_id),
+        )
+
+        notes_by_category = {cat_id: count for cat_id, count in note_stats}
+
+        return UserStats(
+            category_count=len(categories),
+            total_notes=sum(notes_by_category.values()),
+            notes_by_category=notes_by_category,
+        )
 
 
 class NoteService:

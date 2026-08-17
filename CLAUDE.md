@@ -1,42 +1,37 @@
 # CLAUDE.md
 
-Guidance for Claude Code (claude.ai/code) in this repo.
+This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
-## Build and Run Commands
-- Run app: `uvicorn app.main:app --reload`
-- Lint: `ruff check .`
-- Format: `ruff format .`
-- Database migrations (Alembic):
-  - Create migration: `alembic revision --autogenerate -m "description"`
-  - Apply migration: `alembic upgrade head`
+## Development Commands
+
+### Setup and Execution
+- **Install dependencies**: `uv sync`
+- **Run application**: `uv run uvicorn app.main:app --reload`
+- **Activate environment**: `source .venv/bin/activate`
+
+### Code Quality
+- **Lint checks**: `uv run ruff check .`
+- **Format code**: `uv run ruff format .`
+
+### Database Management
+- **Apply migrations**: `uv run alembic upgrade head`
+- **Generate migration**: `uv run alembic revision --autogenerate -m "description of change"`
 
 ## Architecture
-FastAPI layered architecture:
-- `app/main.py`: Entry point and router registration.
-- `app/api/`: HTTP endpoints (Route handlers).
-- `app/services/`: Business logic layer.
-- `app/repositories/`: Data access layer (SQLAlchemy).
-- `app/models/`: SQLAlchemy ORM models.
-- `app/schemas/`: Pydantic models for request/response validation.
-- `app/core/`: Global configuration, database connection, and security utilities.
 
-## Project Logic & Domain
-Nested Notes API. Notes organize into categories.
+The project follows a **Layered Architecture** (API → Service → Repository → Model) to maintain a strict separation of concerns.
 
-### Core Entities
-- **User**: JWT auth. Owns notes and categories.
-- **Category**: Group for notes. Linked to User.
-- **Note**: Text content. Linked to User and Category.
+### Layers
+- **API Layer (`app/api/`)**: Controllers handling HTTP requests, validation, and response formatting.
+- **Service Layer (`app/services/`)**: Business logic, ownership verification, and orchestration. Infrastructure concerns like caching are decoupled using decorators.
+- **Repository Layer (`app/repositories/`)**: Encapsulates all SQLAlchemy async queries using atomic SQL operations to prevent race conditions.
+- **Model Layer (`app/models/`)**: Defines database schemas and data structures.
+- **Schemas (`app/schemas/`)**: Pydantic models for request/response validation and serialization.
+- **Core (`app/core/`)**: Shared infrastructure: configuration, database connection, security, caching, and Redis setup.
 
-### Key Flows
-- **Auth**: Signup/Login $\rightarrow$ JWT token $\rightarrow$ `get_current_user` dependency for protected routes.
-- **Note Management**: Access via nested paths: `/notes/{category_id}/{note_id}`.
-- **Authorization**: Services verify `user_id` ownership before modify/delete.
-
-## Tech Stack
-- Language: Python 3.13+
-- Framework: FastAPI
-- Database: PostgreSQL (via `asyncpg` and `sqlalchemy[asyncio]`)
-- Migration Tool: Alembic
-- Linting/Formatting: Ruff
-- Dependency Management: uv
+### Key Technical Implementation Details
+- **Caching**: Implemented as a write-through cache using Redis. Handled via the `@cache_result` decorator in the service layer. Uses Pydantic `TypeAdapter` for serialization.
+- **Authentication**: JWT-based stateless authentication.
+- **Database**: PostgreSQL with `asyncpg` and `SQLAlchemy` (Async).
+- **Migrations**: Managed via Alembic.
+- **Validation**: Pydantic for type safety and request validation.
